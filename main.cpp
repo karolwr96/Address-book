@@ -3,6 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <cstdio>
+#include <string>
 
 using namespace std;
 
@@ -27,16 +28,18 @@ void savingUserDataAfterChange(vector <UserData> &users);
 void changingThePassword(vector <UserData> &users, int idLoggedInUser);
 void closeProgramm();
 
+int loadingLastIdFromFile();
 int loadingToVectorUserFriendsData(vector <FriendData> &friends, int idLoggedInUser);
 int addFriendToList(vector <FriendData> &friends, int idLoggedInUser, int lastFriendId);
 void showFriendsByName(vector <FriendData> &friends);
 void showFriendsByLastName(vector <FriendData> &friends);
 void showAllFriends(vector <FriendData> &friends);
 void showSingleFriend(vector <FriendData> &friends, int friendToShowId);
-int deletingContact(vector <FriendData> &friends, int lastFriendID);
-int saveFileAfterFriendRemove(vector <FriendData> &friends, int idToDelete);
+void deletingContact(vector <FriendData> &friends);
+void saveAfterDeleteFromAdressBook(int idToDelete);
+string getEditedFriendData (vector <FriendData> &friends, int possitionInLocalVector);
 void editFriendData (vector <FriendData> &friends);
-void saveFileAfterFriendDataEdit(vector <FriendData> &friends, int editedFriendId, int possitionInLocalVector);
+void saveFileAfterFriendDataEdit(string editedLane);
 
 int main() {
     vector <UserData> users;
@@ -96,7 +99,6 @@ void loadingUsersData (vector <UserData> &users) {
     if (!usersList.good()) {
         return;
     }
-
     while (getline(usersList, dataOfSingleUser)) {
         string singleUserData{};
         int singlePersonNumber = 1;
@@ -280,7 +282,8 @@ int showingMenuOfLoggedUser(vector <UserData> &users, int &idLoggedInUser) {
             break;
 
         case 5:
-            lastFriendID = deletingContact(friends, lastFriendID);
+            deletingContact(friends);
+            lastFriendID = loadingLastIdFromFile();
             break;
 
         case 6:
@@ -336,8 +339,24 @@ void closeProgramm() {
     exit(0);
 }
 
+int loadingLastIdFromFile() {
+    string line;
+    fstream friendsList;
+    int lastFriendID = 0;
+
+    friendsList.open("friendsList.txt",ios::in);
+    if (!friendsList.good()) {
+        return 0;
+    }
+    while (getline(friendsList, line)) {
+        lastFriendID = stoi(line.substr(0, line.find("|")));
+    }
+    friendsList.close();
+
+    return lastFriendID;
+}
+
 int loadingToVectorUserFriendsData(vector <FriendData> &friends, int idLoggedInUser) {
-    int idToLoad = 0;
     string laneToLoadFromTXT;
     fstream friendsList;
     FriendData singleFriend;
@@ -345,7 +364,7 @@ int loadingToVectorUserFriendsData(vector <FriendData> &friends, int idLoggedInU
     int lastFriendID = 0;
 
     friendsList.open("friendsList.txt",ios::in);
-    if (friendsList.good() == false) {
+    if (!friendsList.good()) {
         return 0;
     }
     while (getline(friendsList, dataOfSingleFriend)) {
@@ -431,7 +450,7 @@ int addFriendToList(vector <FriendData> &friends, int idLoggedInUser, int lastFr
     friendsList << newFriend.lastName << "|";
     friendsList << newFriend.telNumber << "|";
     friendsList << newFriend.eMail << "|";
-    friendsList << newFriend.adress << endl;
+    friendsList << newFriend.adress << "|" << endl;
 
     friendsList.close();
 
@@ -510,13 +529,13 @@ void showSingleFriend(vector <FriendData> &friends, int friendToShowId) {
     cout << "Adress            " << friends[friendToShowId].adress << endl;
 }
 
-int deletingContact(vector <FriendData> &friends, int lastFriendID) {
+void deletingContact(vector <FriendData> &friends) {
     system("cls");
     if (friends.empty()) {
         cout << "Friend list is empty." << endl;
         cout << endl;
         system("pause");
-        return 0;
+        return;
     } else {
         int idToDelete;
         char deleteOrNot;
@@ -537,6 +556,7 @@ int deletingContact(vector <FriendData> &friends, int lastFriendID) {
         if (!doesIdExist) {
             cout << endl;
             cout << "The entered ID does not exist." << endl;
+            cout << endl;
             system("pause");
         } else {
             cout << "Delete the contact? t/n : ";
@@ -552,77 +572,27 @@ int deletingContact(vector <FriendData> &friends, int lastFriendID) {
                 cout << "Contact deleted." << endl;
                 cout << endl;
                 system("pause");
-                lastFriendID = saveFileAfterFriendRemove(friends, idToDelete);
+                saveAfterDeleteFromAdressBook(idToDelete);
             } else {
+                cout << endl;
                 cout << "The contact has not been deleted." << endl;
                 cout << endl;
                 system("pause");
             }
         }
     }
-    return lastFriendID;
 }
 
-int saveFileAfterFriendRemove(vector <FriendData> &friends, int idToDelete) {
-    int lastFriendId;
-    FriendData singleFriend;
-    string dataOfSingleFriend{};
+void saveAfterDeleteFromAdressBook(int idToDelete) {
+    string line;
+    fstream friendsList, temporaryFriendsList;
 
-    fstream friendsList;
     friendsList.open("friendsList.txt",ios::in);
-    if (!friendsList.good()) {
-        return 0;
-    }
-
-    fstream temporaryFriendsList;
     temporaryFriendsList.open("temporaryFriendsList.txt", ios::out | ios::app);
 
-    while (getline(friendsList, dataOfSingleFriend)) {
-        string singleFriendalData{};
-        int singlePersonNumber = 1;
-
-        for (size_t index{}; index < dataOfSingleFriend.length(); ++index) {
-            if (dataOfSingleFriend[index] != '|') {
-                singleFriendalData += dataOfSingleFriend[index];
-            } else {
-                switch(singlePersonNumber) {
-                case 1:
-                    singleFriend.friendId = stoi(singleFriendalData);
-                    break;
-                case 2:
-                    singleFriend.userId = stoi(singleFriendalData);
-                    break;
-                case 3:
-                    singleFriend.name = singleFriendalData;
-                    break;
-                case 4:
-                    singleFriend.lastName = singleFriendalData;
-                    break;
-                case 5:
-                    singleFriend.telNumber = singleFriendalData;
-                    break;
-                case 6:
-                    singleFriend.eMail = singleFriendalData;
-                    break;
-                case 7:
-                    singleFriend.adress = singleFriendalData;
-                    break;
-                }
-                if (singleFriend.friendId != idToDelete) {
-                    lastFriendId = singleFriend.friendId;
-                }
-                singleFriendalData = "";
-                singlePersonNumber++;
-            }
-        }
-        if (singleFriend.friendId != idToDelete) {
-            temporaryFriendsList <<  singleFriend.friendId << "|";
-            temporaryFriendsList << singleFriend.userId << "|";
-            temporaryFriendsList <<  singleFriend.name << "|";
-            temporaryFriendsList << singleFriend.lastName << "|";
-            temporaryFriendsList << singleFriend.telNumber << "|";
-            temporaryFriendsList << singleFriend.eMail << "|";
-            temporaryFriendsList << singleFriend.adress << "|" << endl;
+    while (getline(friendsList, line)) {
+        if (stoi(line.substr(0, line.find("|"))) != idToDelete) {
+            temporaryFriendsList << line << endl;
         }
     }
     temporaryFriendsList.close();
@@ -630,7 +600,19 @@ int saveFileAfterFriendRemove(vector <FriendData> &friends, int idToDelete) {
 
     remove("friendsList.txt");
     rename("temporaryFriendsList.txt","friendsList.txt");
-    return lastFriendId;
+}
+
+string getEditedFriendData (vector <FriendData> &friends, int possitionInLocalVector) {
+    string editedFriendData = "";
+    editedFriendData += to_string(friends[possitionInLocalVector].friendId) + '|';
+    editedFriendData += to_string(friends[possitionInLocalVector].userId) + '|';
+    editedFriendData += friends[possitionInLocalVector].name + '|';
+    editedFriendData += friends[possitionInLocalVector].lastName + '|';
+    editedFriendData += friends[possitionInLocalVector].telNumber + '|';
+    editedFriendData += friends[possitionInLocalVector].eMail + '|';
+    editedFriendData += friends[possitionInLocalVector].adress + '|';
+
+    return editedFriendData;
 }
 
 void editFriendData (vector <FriendData> &friends) {
@@ -645,7 +627,6 @@ void editFriendData (vector <FriendData> &friends) {
         cout << endl;
         system("pause");
     }
-
     else {
         cout << "Please enter a friend ID: ";
         cin >> friendDataToChangeID;
@@ -666,8 +647,8 @@ void editFriendData (vector <FriendData> &friends) {
             return;
         } else {
             cout << endl;
-
             cout << "Select data to change: " << endl;
+            cout << endl;
             cout << "1. Name." << endl;
             cout << "2. Last name." << endl;
             cout << "3. Telephone number." << endl;
@@ -732,80 +713,27 @@ void editFriendData (vector <FriendData> &friends) {
                 system("pause");
             }
         }
-        saveFileAfterFriendDataEdit(friends, friendDataToChangeID, possitionInLocalVector);
+        saveFileAfterFriendDataEdit(getEditedFriendData(friends, possitionInLocalVector));
     }
 }
 
-void saveFileAfterFriendDataEdit(vector <FriendData> &friends, int editedFriendId, int possitionInLocalVector) {
-    FriendData singleFriend;
-    string dataOfSingleFriend{};
+void saveFileAfterFriendDataEdit(string editedLane) {
+    string line, editedId = editedLane.substr(0, editedLane.find('|'));
+    fstream friendsList, temporaryFriendsList;
 
-    fstream friendsList;
     friendsList.open("friendsList.txt",ios::in);
-    if (friendsList.good() == false) {
-        return;
-    }
-
-    fstream temporaryFriendsList;
     temporaryFriendsList.open("temporaryFriendsList.txt", ios::out | ios::app);
 
-    while (getline(friendsList, dataOfSingleFriend)) {
-        string singleFriendalData{};
-        int singlePersonNumber = 1;
-
-        for (size_t index{}; index < dataOfSingleFriend.length(); ++index) {
-            if (dataOfSingleFriend[index] != '|') {
-                singleFriendalData += dataOfSingleFriend[index];
-            } else {
-                switch(singlePersonNumber) {
-                case 1:
-                    singleFriend.friendId = stoi(singleFriendalData);
-                    break;
-                case 2:
-                    singleFriend.userId = stoi(singleFriendalData);
-                    break;
-                case 3:
-                    singleFriend.name = singleFriendalData;
-                    break;
-                case 4:
-                    singleFriend.lastName = singleFriendalData;
-                    break;
-                case 5:
-                    singleFriend.telNumber = singleFriendalData;
-                    break;
-                case 6:
-                    singleFriend.eMail = singleFriendalData;
-                    break;
-                case 7:
-                    singleFriend.adress = singleFriendalData;
-                    break;
-                }
-                singleFriendalData = "";
-                singlePersonNumber++;
-            }
-        }
-        if (singleFriend.friendId != editedFriendId) {
-            temporaryFriendsList <<  singleFriend.friendId << "|";
-            temporaryFriendsList << singleFriend.userId << "|";
-            temporaryFriendsList <<  singleFriend.name << "|";
-            temporaryFriendsList << singleFriend.lastName << "|";
-            temporaryFriendsList << singleFriend.telNumber << "|";
-            temporaryFriendsList << singleFriend.eMail << "|";
-            temporaryFriendsList << singleFriend.adress << "|" << endl;
-
-        } else if (singleFriend.friendId == editedFriendId) {
-            temporaryFriendsList << friends[possitionInLocalVector].friendId << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].userId << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].name << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].lastName << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].telNumber << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].eMail << "|";
-            temporaryFriendsList << friends[possitionInLocalVector].adress << "|" << endl;
+    while (getline(friendsList, line)) {
+        if (stoi(line.substr(0, line.find("|"))) != stoi(editedId)) {
+            temporaryFriendsList << line << endl;
+        } else if (stoi(line.substr(0, line.find("|"))) == stoi(editedId)) {
+            temporaryFriendsList << editedLane << endl;
         }
     }
     temporaryFriendsList.close();
     friendsList.close();
 
     remove("friendsList.txt");
-    rename("temporaryFriendsList.txt", "friendsList.txt");
+    rename("temporaryFriendsList.txt","friendsList.txt");
 }
